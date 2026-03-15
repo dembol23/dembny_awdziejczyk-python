@@ -1,11 +1,11 @@
 import sys
 
-def search_longest_sentence():
+def search_longest_sentence(text):
     sentence = ""
     longest_sentence = ""
     longest_sentence_len = 0
 
-    while char := sys.stdin.read(1):
+    while char := text.read(1):
         sentence += char
 
         if char in ".!?":
@@ -15,7 +15,9 @@ def search_longest_sentence():
                 longest_sentence = sentence
             sentence = ""
 
-    print(longest_sentence)
+    return longest_sentence
 
 if __name__ == "__main__":
-    search_longest_sentence()
+    result = search_longest_sentence(sys.stdin)
+    if result:
+        print(result)

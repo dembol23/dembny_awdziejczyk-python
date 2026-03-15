@@ -1,6 +1,6 @@
 import sys
 
-def search_longest_sentence_no_first_char_twice():
+def search_longest_sentence_no_first_char_twice(text):
     sentence = ""
     is_new_word = True
     no_first_char_twice = True
@@ -8,7 +8,7 @@ def search_longest_sentence_no_first_char_twice():
     longest_sentence = ""
     longest_sentence_len = 0
 
-    while char := sys.stdin.read(1):
+    while char := text.read(1):
         sentence += char
 
         if is_new_word and char.isalpha():
@@ -19,7 +19,7 @@ def search_longest_sentence_no_first_char_twice():
             last_first_char = char_lower
             is_new_word = False
 
-        if char == " ":
+        if char.isspace():
             is_new_word = True
 
         if char in ".!?":
@@ -33,7 +33,9 @@ def search_longest_sentence_no_first_char_twice():
             no_first_char_twice = True
 
 
-    print(longest_sentence)
+    return longest_sentence
 
 if __name__ == "__main__":
-    search_longest_sentence_no_first_char_twice()
+    result = search_longest_sentence_no_first_char_twice(sys.stdin)
+    if result:
+        print(result)

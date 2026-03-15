@@ -1,10 +1,10 @@
 import sys
 
-def search_first_multiple_complex_sentence():
+def search_first_multiple_complex_sentence(text):
     sentence = ""
     comma_count = 0
 
-    while char := sys.stdin.read(1):
+    while char := text.read(1):
         sentence += char
 
         if char == ",":
@@ -13,11 +13,12 @@ def search_first_multiple_complex_sentence():
         if char in ".!?":
             sentence = sentence.strip()
             if comma_count > 1:
-                print(sentence)
-                break
+                return sentence
             sentence = ""
             comma_count = 0
-
+    return ""
 
 if __name__ == "__main__":
-    search_first_multiple_complex_sentence()
+    result = search_first_multiple_complex_sentence(sys.stdin)
+    if result:
+        print(result)
