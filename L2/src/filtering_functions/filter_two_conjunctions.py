@@ -1,13 +1,13 @@
 import sys
 
 def get_number_of_conjunctions(text):
-    count = 0
-    count += (text.count(" i ") > 0)
-    count += (text.count(" oraz ") > 0)
-    count += (text.count(" ale ") > 0)
-    count += (text.count(" że ") > 0)
-    count += (text.count(" lub ") > 0)
-    return count
+    return (
+        (" i " in text) +
+        (" oraz " in text) +
+        (" ale " in text) +
+        (" że " in text) +
+        (" lub " in text)
+    )
 
 def filter_two_conjunctions(text):
     sentence = ""
@@ -17,7 +17,7 @@ def filter_two_conjunctions(text):
         sentence += char
 
         if char in ".!?":
-            sentence = sentence.strip()
+            sentence = sentence.strip().replace(",", "")
             if get_number_of_conjunctions(sentence) >= 2:
                 result += f"{sentence}\n"
             sentence = ""
