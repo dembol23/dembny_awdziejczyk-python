@@ -1,4 +1,11 @@
 import sys
+from utils import read_sentences
+
+def clean_spaces(text):
+    text = text.strip()
+    while "  " in text:
+        text = text.replace("  ", " ")
+    return text
 
 def get_number_of_conjunctions(text):
     return (
@@ -10,22 +17,18 @@ def get_number_of_conjunctions(text):
     )
 
 def filter_two_conjunctions(text):
-    sentence = ""
     result = ""
-
-    while char := text.read(1):
-        sentence += char
-
-        if char in ".!?":
-            sentence = sentence.strip().replace(",", "")
-            if get_number_of_conjunctions(sentence) >= 2:
-                result += f"{sentence}\n"
-            sentence = ""
-
+    try:
+        for sentence in read_sentences(text):
+            cleaned = clean_spaces(sentence.replace(",", ""))
+            if get_number_of_conjunctions(cleaned) >= 2:
+                result += sentence + "\n"
+    except Exception as e:
+        print(e)
     return result
 
 
 if __name__ == "__main__":
     result = filter_two_conjunctions(sys.stdin)
     if result:
-        print(result)
+        print(result, end="")

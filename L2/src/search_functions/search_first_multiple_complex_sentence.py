@@ -1,21 +1,21 @@
 import sys
+from utils import read_sentences
+
+def count_commas(sentence):
+    count = 0
+    for char in sentence:
+        if char == ',':
+            count += 1
+    return count
 
 def search_first_multiple_complex_sentence(text):
-    sentence = ""
-    comma_count = 0
-
-    while char := text.read(1):
-        sentence += char
-
-        if char == ",":
-            comma_count += 1
-
-        if char in ".!?":
-            sentence = sentence.strip()
-            if comma_count > 1:
+    try:
+        for sentence in read_sentences(text):
+            if count_commas(sentence) > 1:
                 return sentence
-            sentence = ""
-            comma_count = 0
+    except Exception as e:
+        print(e)
+
     return ""
 
 if __name__ == "__main__":
