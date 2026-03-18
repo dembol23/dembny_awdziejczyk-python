@@ -33,7 +33,10 @@ def main(func):
                 print(func(buffer), end = "")
                 preamble_checked = True
         else:
-            print(func(text))
+            try:
+                print(func(text))
+            except BrokenPipeError:
+                sys.exit(0)
 
 
 
