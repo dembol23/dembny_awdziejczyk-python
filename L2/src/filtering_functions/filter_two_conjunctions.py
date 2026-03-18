@@ -17,18 +17,16 @@ def get_number_of_conjunctions(text):
     )
 
 def filter_two_conjunctions(text):
-    result = ""
     try:
         for sentence in read_sentences(text):
             cleaned = clean_spaces(sentence.replace(",", ""))
             if get_number_of_conjunctions(cleaned) >= 2:
-                result += sentence + "\n"
+                yield sentence
     except Exception as e:
         print(e)
-    return result
 
 
 if __name__ == "__main__":
-    result = filter_two_conjunctions(sys.stdin)
-    if result:
-        print(result, end="")
+    for sentence in filter_two_conjunctions(sys.stdin):
+        print(sentence)
+
