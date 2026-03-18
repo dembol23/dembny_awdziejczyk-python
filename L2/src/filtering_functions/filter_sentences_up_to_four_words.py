@@ -1,29 +1,28 @@
 import sys
+from utils import read_sentences
 
-def filter_sentences_up_to_four_words(text):
-    sentence = ""
-    word_count = 0
+def count_words(sentence):
+    count = 0
     in_word = False
-
-    while char := text.read(1):
-        sentence += char
-
+    for char in sentence:
         if char.isalpha():
             if not in_word:
-                word_count += 1
+                count += 1
                 in_word = True
         else:
             in_word = False
+    return count
 
-        if char in ".!?":
-            sentence = sentence.strip()
-            if word_count <= 4:
-                print(sentence)
-            sentence = ""
-            word_count = 0
-            in_word = False
+def filter_sentences_up_to_four_words(text):
+    try:
+        for sentence in read_sentences(text):
+            if count_words(sentence) <= 4:
+                yield sentence
+    except Exception as e:
+        print(e)
 
 
 
 if __name__ == "__main__":
-    filter_sentences_up_to_four_words(sys.stdin)
+    for sentence in filter_sentences_up_to_four_words(sys.stdin):
+        print(sentence)

@@ -1,21 +1,17 @@
 import sys
+from utils import read_sentences
 
 def search_longest_sentence(text):
-    sentence = ""
-    longest_sentence = ""
-    longest_sentence_len = 0
+    longest = ""
 
-    while char := text.read(1):
-        sentence += char
+    try:
+        for sentence in read_sentences(text):
+            if len(sentence) > len(longest):
+                longest = sentence
+    except Exception as e:
+        print(e)
 
-        if char in ".!?":
-            sentence = sentence.strip()
-            if len(sentence) > longest_sentence_len:
-                longest_sentence_len = len(sentence)
-                longest_sentence = sentence
-            sentence = ""
-
-    return longest_sentence
+    return longest
 
 if __name__ == "__main__":
     result = search_longest_sentence(sys.stdin)

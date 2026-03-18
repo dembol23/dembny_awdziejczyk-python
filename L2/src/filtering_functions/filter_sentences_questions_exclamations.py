@@ -1,16 +1,14 @@
 import sys
+from utils import read_sentences
 
 def filter_sentences_questions_exclamations(text):
-    sentence = ""
-
-    while char := text.read(1):
-        sentence += char
-
-        if char in ".!?":
-            sentence = sentence.strip()
-            if char in "!?":
-                print(sentence)
-            sentence = ""
+    try:
+        for sentence in read_sentences(text):
+            if sentence and sentence[-1] in '!?':
+                yield sentence
+    except Exception as e:
+        print(e)
 
 if __name__ == "__main__":
-    filter_sentences_questions_exclamations(sys.stdin)
+    for sentence in filter_sentences_questions_exclamations(sys.stdin):
+        print(sentence)

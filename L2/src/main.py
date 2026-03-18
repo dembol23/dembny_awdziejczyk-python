@@ -33,7 +33,7 @@ def main(func):
                 print(func(buffer), end = "")
                 preamble_checked = True
         else:
-            print(func(clean_spaces(line)))
+            print(func(text))
 
 
 
