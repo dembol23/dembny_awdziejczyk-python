@@ -19,7 +19,8 @@ def list_to_tuple(line):
     return ts, uid, id_orig_host, id_orig_p, id_resp_h, id_resp_p, method, host, uri, status
 
 def read_log(log):
-    return [list_to_tuple(line.strip().split("\t")) for line in log if line != ""]
+    sep = "\t"
+    return [list_to_tuple(line.strip().split(sep)) for line in log if line != ""]
 
 if __name__ == '__main__':
     print(read_log(sys.stdin))
