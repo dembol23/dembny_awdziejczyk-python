@@ -7,6 +7,3 @@ def sort_log(log, index):
     except IndexError as e:
         print(e)
         return log
-
-if __name__ == "__main__":
-    sort_log([], 0)
