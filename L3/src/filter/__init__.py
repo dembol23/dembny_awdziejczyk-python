@@ -4,3 +4,4 @@ from .get_entries_by_extension import get_entries_by_extension
 from .get_failed_reads import get_failed_reads
 from .get_top_ips import get_top_ips
 from .get_unique_methods import get_unique_methods
+from .get_entries_in_time_range import get_entries_in_time_range
