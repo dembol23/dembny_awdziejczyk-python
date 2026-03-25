@@ -25,7 +25,7 @@ def main():
     separator("Zad 2 - sort_log")
     print("Po timestamp:", sort_log(logi, 0)[0][0])
     print("Po statusie:", sort_log(logi, 9)[0][9])
-    print("Błędny indeks:", sort_log(logi, 99))
+    print("Błędny indeks:", sort_log(logi, 99)[0][0])
 
     separator("Zad 3 - get_entries_by_code")
     print("404:", len(get_entries_by_code(logi, 404)))
