@@ -27,6 +27,3 @@ def list_to_tuple(line):
 def read_log():
     sep = "\t"
     return [list_to_tuple(line.strip().split(sep)) for line in sys.stdin if line.strip() != ""]
-
-if __name__ == '__main__':
-    print(read_log()[1:10])

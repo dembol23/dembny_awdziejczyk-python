@@ -1,22 +1,17 @@
-from collections import Counter
+from filter import get_top_ips, get_top_uris, get_failed_reads
+from count import count_by_method, count_status_classes
 
 def analyze_log(log):
-    ips = Counter(entry[2] for entry in log)
-    uris = Counter(entry[8] for entry in log)
-    methods = Counter(entry[6] for entry in log)
-    statuses = Counter(entry[9] for entry in log)
-
-    errors_4xx = sum(v for k, v in statuses.items() if k // 100 == 4)
-    errors_5xx = sum(v for k, v in statuses.items() if k // 100 == 5)
-
+    errors_4xx, errors_5xx = get_failed_reads(log)
+    
     return {
-        "top_ips": ips.most_common(10),
-        "top_uris": uris.most_common(10),
-        "method_distribution": dict(methods),
-        "status_distribution": dict(statuses),
-        "errors_4xx": errors_4xx,
-        "errors_5xx": errors_5xx,
-        "unique_ips": len(ips),
-        "unique_uris": len(uris),
+        "top_ips": get_top_ips(log, n=10),
+        "top_uris": get_top_uris(log, n=10),
+        "method_distribution": count_by_method(log),
+        "status_distribution": count_status_classes(log),
+        "errors_4xx": len(errors_4xx),
+        "errors_5xx": len(errors_5xx),
+        "unique_ips": len(set(entry[2] for entry in log)),
+        "unique_uris": len(set(entry[8] for entry in log)),
         "total_requests": len(log)
     }
