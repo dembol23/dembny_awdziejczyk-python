@@ -12,12 +12,6 @@ def is_executable(path):
     return os.access(path, os.X_OK)
 
 def main():
-    """
-        path.py             = wyświetla katalogi ze zmiennej środowiskowej PATH
-        path.py --execs     = wyświetla katalogi ze zmiennej środowiskowej PATH oraz znajdujące się 
-                              w nich pliki wykonywalne
-    """
-
     parser = argparse.ArgumentParser(description="Wyświetla katalogi ze zmiennej PATH")
     parser.add_argument('--execs', action='store_true', 
                         help="Pokaż pliki wykonywalne w każdym katalogu")
