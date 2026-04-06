@@ -1,5 +1,9 @@
 import os
-import sys
+import argparse
+
+GREEN = "\033[1;32m"
+RED = "\033[1;31m"
+RESET = "\033[0m"
 
 def is_executable(path):
     # Sprawdza czy plik jest wykonywalny na uruchamianym systemie
@@ -13,13 +17,18 @@ def main():
         path.py --execs     = wyświetla katalogi ze zmiennej środowiskowej PATH oraz znajdujące się 
                               w nich pliki wykonywalne
     """
-    
-    GREEN = "\033[1;32m"
-    RED="\033[1;31m"
-    RESET = "\033[0m"
 
-    path_dirs = os.environ.get("PATH", "").split(os.pathsep)
-    show_execs = "--execs" in sys.argv
+    parser = argparse.ArgumentParser(description="Wyświetla katalogi ze zmiennej PATH")
+    parser.add_argument('--execs', action='store_true', 
+                        help="Pokaż pliki wykonywalne w każdym katalogu")
+    args = parser.parse_args()
+
+    path_env = os.environ.get("PATH", "")
+    if not path_env:
+        print("Zmienna PATH jest pusta lub nieustawiona.")
+        return
+    path_dirs = path_env.split(os.pathsep)
+    show_execs = args.execs
 
     for directory in path_dirs:
         if os.path.isdir(directory):
@@ -34,10 +43,6 @@ def main():
                     print("  [Brak uprawnień do odczytu]")
         else:
             print(f"{GREEN}{directory}{RESET} {RED}[Katalog nie istnieje]{RESET}")
-    if len(sys.argv) > 1 and not show_execs:
-        print("-"*50)
-        print(f"{RED}--execs żeby wyświetlić pliki wykonywalne{RESET}")
-        print("-"*50)
 
 if __name__ == "__main__":
     main()
