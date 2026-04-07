@@ -7,53 +7,49 @@ def get_files(directory_path):
         for filename in files:
             file_path = os.path.join(root, filename)
             result.append(file_path)
-
     return result
 
 def run_analyzer(files):
     results = []
-    total_files = 0
-    total_chars = 0
-    total_words = 0
-    total_lines = 0
     all_chars_counter = Counter()
     all_words_counter = Counter()
+
+    analyzer_path = os.path.join(os.path.dirname(__file__), "analyze_file.py")
 
     for file in files:
         try:
             process = subprocess.run(
-                ["python", "analyze_file.py"],
-                input=file.encode('utf-8'),
+                ["python", analyzer_path],
+                input=file,
+                text=True,
                 capture_output=True,
                 check=True
             )
 
             data = json.loads(process.stdout)
 
-            total_files += 1
-            total_chars += data["chars"]
-            total_words += data["words"]
-            total_lines += data["lines"]
-
-            with open(file, 'r', encoding='utf-8') as f:
-                content = f.read()
-                all_chars_counter.update(ch for ch in content if not ch.isspace())
-                all_words_counter.update(content.split())
+            if data["top_char"]: all_chars_counter[data["top_char"]] += 1
+            if data["top_word"]: all_words_counter[data["top_word"]] += 1
 
             results.append(data)
 
+        except subprocess.CalledProcessError as e:
+            print(f"Błąd analizy {file}: {e.stderr}", file=sys.stderr)
         except Exception as e:
-            print(e, file=sys.stderr)
+            print(f"Nieoczekiwany błąd dla {file}: {e}", file=sys.stderr)
 
-    print(f"Total files: {total_files}")
-    print(f"Total chars: {total_chars}")
-    print(f"Total words: {total_words}")
-    print(f"Total lines: {total_lines}")
-    print(f"Top char: {all_chars_counter.most_common(1)[0][0]}")
-    print(f"Top word: {all_words_counter.most_common(1)[0][0]}")
+    print(f"Total files: {len(results)}")
+    print(f"Total chars: {sum(r['chars'] for r in results)}")
+    print(f"Total words: {sum(r['words'] for r in results)}")
+    print(f"Total lines: {sum(r['lines'] for r in results)}")
+    print(f"Top char: {all_chars_counter.most_common(1)[0][0] if all_chars_counter else 'brak'}")
+    print(f"Top word: {all_words_counter.most_common(1)[0][0] if all_words_counter else 'brak'}")
 
     return results
 
 if __name__ == "__main__":
-    dir_path = sys.argv[1]
-    print(run_analyzer(get_files(dir_path)))
+    if len(sys.argv) != 2:
+        print("Użycie: python analyze_dir.py <ścieżka_do_katalogu>", file=sys.stderr)
+        sys.exit(1)
+
+    run_analyzer(get_files(sys.argv[1]))

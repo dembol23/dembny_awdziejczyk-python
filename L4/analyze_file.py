@@ -1,4 +1,4 @@
-import sys, os, pathlib, json
+import sys, pathlib, json
 from collections import Counter
 
 def get_filepath():
@@ -12,14 +12,15 @@ def get_filepath():
     return path
 
 def analyze_file(filepath):
-    with open(filepath, "r") as f:
+    with open(filepath, "r", encoding="utf-8") as f:
         content = f.read()
 
     chars = len(content)
-    words = len(content.split())
+    word_list = content.split()
+    words = len(word_list)
     lines = len(content.splitlines())
-    top_char = Counter(ch for ch in content if not ch.isspace()).most_common(1)[0][0]
-    top_word = Counter(content.split()).most_common(1)[0][0]
+    top_char = Counter(ch for ch in content if not ch.isspace()).most_common(1)[0][0] if content.strip() else ""
+    top_word = Counter(word_list).most_common(1)[0][0] if word_list else ""
 
     result = {
         "filepath": str(filepath.resolve()),
