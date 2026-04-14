@@ -22,12 +22,11 @@ def main():
         print("Zmienna PATH jest pusta lub nieustawiona.")
         return
     path_dirs = path_env.split(os.pathsep)
-    show_execs = args.execs
 
     for directory in path_dirs:
         if os.path.isdir(directory):
             print(f"{GREEN}{directory}{RESET}")
-            if show_execs:
+            if args.execs:
                 try:
                     for file in os.listdir(directory):
                         full_path = os.path.join(directory, file)

@@ -1,9 +1,16 @@
 import argparse, sys, time
 from collections import deque
 
+def positive_int(value):
+    """Typ argumentu argparse – akceptuje tylko dodatnie liczby całkowite."""
+    ivalue = int(value)
+    if ivalue <= 0:
+        raise argparse.ArgumentTypeError(f"--lines musi być liczbą dodatnią, podano: {value}")
+    return ivalue
+
 def main():
     parser = argparse.ArgumentParser(description="Wyświetla ostatnie linie pliku")
-    parser.add_argument('--lines', type=int, default=10, help="Liczba linii do wyświetlenia (domyślnie 10)")
+    parser.add_argument('--lines', type=positive_int, default=10, help="Liczba linii do wyświetlenia (domyślnie 10)")
     parser.add_argument('--follow', action='store_true', help="Śledź plik i wyświetlaj nowe linie na bieżąco")
     parser.add_argument('file', nargs='?', help="Ścieżka do pliku (jeśli nie podano, czyta ze stdin)")
     args = parser.parse_args()
