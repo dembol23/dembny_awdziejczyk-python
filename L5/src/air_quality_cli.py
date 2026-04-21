@@ -1,203 +1,94 @@
 import argparse
-import csv
-import math
-import os
-import random
+import logging
 import sys
 from datetime import datetime
+from pathlib import Path
+from air_quality_stats import get_random_active_station, calculate_station_stats
+from data_parser import group_measurement_files_by_key
 
 # ---------------------------------------------------------------------------
-# Stałe – ścieżki plików
+# Stałe
 # ---------------------------------------------------------------------------
 
-_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-BASE_DIR = os.path.dirname(_SCRIPT_DIR)
-STATIONS_FILE = os.path.join(BASE_DIR, "data/stacje.csv")
-MEASUREMENTS_DIR = os.path.join(BASE_DIR, "data/measurements")
-DATE_FMT_USER = "%Y-%m-%d"
-DATE_FMT_FILE = "%d/%m/%y %H:%M"
+BASE_DIR         = Path(__file__).parent.parent
+STATIONS_FILE    = BASE_DIR / "data" / "stacje.csv"
+MEASUREMENTS_DIR = BASE_DIR / "data" / "measurements"
 
 # ---------------------------------------------------------------------------
 # Walidatory (używane przez argparse jako typ argumentu)
 # ---------------------------------------------------------------------------
 
 VALID_INDICATORS = {
-    "PM2.5", "PM10", "NO", "NO2", "NOx", "SO2", "CO", "O3", "C6H6",
+    "PM25", "PM10", "NO", "NO2", "NOx", "SO2", "CO", "O3", "C6H6",
     "Pb(PM10)", "Cd(PM10)", "As(PM10)", "Ni(PM10)", "BaP(PM10)",
 }
 
 VALID_FREQS = {"1g", "24g"}
 
+def setup_logging() -> None:
+    fmt = logging.Formatter("%(asctime)s [%(levelname)s] %(message)s", "%H:%M:%S")
+ 
+    stdout_handler = logging.StreamHandler(sys.stdout)
+    stdout_handler.setLevel(logging.DEBUG)
+    stdout_handler.addFilter(lambda r: r.levelno < logging.ERROR)
+    stdout_handler.setFormatter(fmt)
+ 
+    stderr_handler = logging.StreamHandler(sys.stderr)
+    stderr_handler.setLevel(logging.ERROR)
+    stderr_handler.setFormatter(fmt)
+ 
+    root = logging.getLogger()
+    if root.handlers:
+        return
+    root.setLevel(logging.DEBUG)
+    root.addHandler(stdout_handler)
+    root.addHandler(stderr_handler)
 
-def validate_indicator(value: str) -> str:
-    """
-    Sprawdza, czy podany wskaźnik należy do listy dozwolonych wartości.
-    Argparse wywołuje tę funkcję automatycznie dla argumentu --indicator.
-    Jeśli wartość jest niepoprawna, rzuca argparse.ArgumentTypeError,
-    co wyświetla czytelny błąd i przerywa program.
-    """
-    if value not in VALID_INDICATORS:
-        raise argparse.ArgumentTypeError(
-            f"Nieznany wskaźnik: '{value}'. "
-            f"Dozwolone wartości: {', '.join(sorted(VALID_INDICATORS))}"
-        )
-    return value
-
-
-def validate_freq(value: str) -> str:
-    """
-    Sprawdza, czy podana częstotliwość uśredniania należy do dozwolonych wartości.
-    """
-    if value not in VALID_FREQS:
-        raise argparse.ArgumentTypeError(
-            f"Nieznana częstotliwość: '{value}'. "
-            f"Dozwolone wartości: {', '.join(sorted(VALID_FREQS))}"
-        )
-    return value
-
+# ---------------------------------------------------------------------------
+# Walidatory
+# ---------------------------------------------------------------------------
 
 def validate_date(value: str) -> datetime:
-    """
-    Parsuje datę w formacie YYYY-MM-DD do obiektu datetime.
-    Jeśli format jest niepoprawny, rzuca argparse.ArgumentTypeError.
-    """
     try:
-        return datetime.strptime(value, DATE_FMT_USER)
+        return datetime.strptime(value, "%Y-%m-%d")
     except ValueError:
+        raise argparse.ArgumentTypeError(f"Niepoprawna data: '{value}'. Format: RRRR-MM-DD")
+ 
+def validate_indicator(value: str) -> str:
+    if value not in VALID_INDICATORS:
         raise argparse.ArgumentTypeError(
-            f"Niepoprawna data: '{value}'. Oczekiwany format: RRRR-MM-DD"
+            f"Nieznany wskaźnik: '{value}'. Dozwolone: {', '.join(sorted(VALID_INDICATORS))}"
         )
-
-
-# ---------------------------------------------------------------------------
-# Funkcje pomocnicze – ładowanie danych
-# ---------------------------------------------------------------------------
-
-def load_stations(path: str) -> list[dict]:
-    """
-    Wczytuje plik stacje.csv i zwraca listę słowników,
-    gdzie każdy słownik odpowiada jednej stacji.
-
-    Parametr path: ścieżka do pliku stacje.csv.
-    """
-    stations = []
-    # Otwieramy plik z kodowaniem UTF-8 z BOM (często stosowanym w polskich plikach CSV).
-    with open(path, newline="", encoding="utf-8-sig") as fh:
-        reader = csv.DictReader(fh)
-        for row in reader:
-            stations.append(row)
-    return stations
-
-
-def build_measurement_path(indicator: str, freq: str) -> str:
-    """
-    Buduje ścieżkę do pliku z pomiarami na podstawie wskaźnika i częstotliwości.
-    Szablon nazwy pliku to: <wskaźnik>_<częstotliwość>.csv
-    Przykład: As(PM10)_24g.csv
-    """
-    filename = f"2023_{indicator}_{freq}.csv"
-    return os.path.join(MEASUREMENTS_DIR, filename)
-
-
-def load_measurements(
-        path: str, start: datetime, end: datetime
-) -> tuple[list[str], list[dict]]:
-    """
-    Wczytuje plik pomiarów i filtruje wiersze mieszczące się w przedziale [start, end].
-
-    Zwraca krotkę (kody_stacji, wiersze_pomiarów):
-      - kody_stacji: lista kodów stacji (nagłówek z wiersza "Kod stacji")
-      - wiersze_pomiarów: lista słowników {kod_stacji: wartość_pomiaru}
-        dla każdego kroku czasowego w zadanym przedziale.
-
-    Pierwsze 6 wierszy pliku to metadane – pomijamy je i budujemy własny nagłówek.
-    """
-    if not os.path.exists(path):
-        print(f"Błąd: plik pomiarów nie istnieje: {path}", file=sys.stderr)
-        sys.exit(1)
-
-    with open(path, newline="", encoding="utf-8-sig") as fh:
-        reader = csv.reader(fh)
-        rows = list(reader)
-
-    station_codes = rows[1][1:]
-
-    filtered_rows = []
-    for data_row in rows[6:]:
-        if not data_row or not data_row[0].strip():
-            continue
-        try:
-            ts = datetime.strptime(data_row[0].strip(), DATE_FMT_FILE)
-        except ValueError:
-            continue
-
-        if start <= ts <= end:
-            row_dict = {"_timestamp": ts}
-            for i, code in enumerate(station_codes):
-                raw = data_row[i + 1].strip() if i + 1 < len(data_row) else ""
-                row_dict[code] = raw
-            filtered_rows.append(row_dict)
-
-    return station_codes, filtered_rows
-
+    return value
+ 
+def validate_freq(value: str) -> str:
+    if value not in VALID_FREQS:
+        raise argparse.ArgumentTypeError(
+            f"Nieznana częstotliwość: '{value}'. Dozwolone: {', '.join(sorted(VALID_FREQS))}"
+        )
+    return value
 
 # ---------------------------------------------------------------------------
-# Podkomenda: random-station
+# Helper – szuka pliku pomiarowego przez group_measurement_files_by_key
+# ---------------------------------------------------------------------------
+ 
+def find_measurement_file(indicator: str, freq: str) -> Path:
+    files = group_measurement_files_by_key(MEASUREMENTS_DIR)
+    key   = next((k for k in files if k[1] == indicator and k[2] == freq), None)
+    if key is None:
+        logging.warning(f"Brak pliku pomiarowego dla wskaźnika={indicator}, freq={freq}")
+        raise FileNotFoundError(f"Nie znaleziono pliku: {indicator}_{freq}.csv")
+    return files[key]
+
+# ---------------------------------------------------------------------------
+# Podkomendy
 # ---------------------------------------------------------------------------
 
 def cmd_random_station(args: argparse.Namespace) -> None:
-    """
-    Wypisuje nazwę i adres losowej stacji, która w zadanym przedziale czasowym
-    mierzy wskaźnik podany przez użytkownika.
-
-    Algorytm:
-    1. Wczytaj plik pomiarów i odfiltruj wiersze z zadanego przedziału.
-    2. Zbierz kody stacji, które mają co najmniej jeden niepusty pomiar.
-    3. Dopasuj te kody do wpisów w stacje.csv.
-    4. Wybierz losowo jedną stację i wypisz jej dane.
-    """
-    path = build_measurement_path(args.indicator, args.freq)
-    station_codes, filtered_rows = load_measurements(path, args.start, args.end)
-
-    if not filtered_rows:
-        print(
-            "Brak danych pomiarowych w podanym przedziale czasowym.",
-            file=sys.stderr,
-        )
-        sys.exit(1)
-
-    active_codes = set()
-    for row in filtered_rows:
-        for code in station_codes:
-            val = row.get(code, "").strip()
-            # Wartość niepusta i niebędąca samą spacją oznacza, że stacja mierzyła.
-            if val:
-                active_codes.add(code)
-
-    if not active_codes:
-        print(
-            "Żadna stacja nie wykonała pomiarów w podanym przedziale.",
-            file=sys.stderr,
-        )
-        sys.exit(1)
-
-    stations = load_stations(STATIONS_FILE)
-
-    matching_stations = [
-        s for s in stations if s.get("Kod stacji", "").strip() in active_codes
-    ]
-
-    if not matching_stations:
-        print(
-            "Nie znaleziono metadanych dla żadnej aktywnej stacji w stacje.csv.",
-            file=sys.stderr,
-        )
-        sys.exit(1)
-
-    chosen = random.choice(matching_stations)
-
-    print("=" * 55)
-    print("Losowa stacja pomiarowa")
+    chosen = get_random_active_station(
+        find_measurement_file(args.indicator, args.freq),
+        STATIONS_FILE, args.start, args.end
+    )
     print("=" * 55)
     print(f"Kod stacji : {chosen.get('Kod stacji', '').strip()}")
     print(f"Nazwa      : {chosen.get('Nazwa stacji', '').strip()}")
@@ -205,85 +96,23 @@ def cmd_random_station(args: argparse.Namespace) -> None:
     print(f"Miejscowość: {chosen.get('Miejscowość', '').strip()}")
     print(f"Województwo: {chosen.get('Województwo', '').strip()}")
     print("=" * 55)
-
-
-# ---------------------------------------------------------------------------
-# Podkomenda: stats
-# ---------------------------------------------------------------------------
-
+ 
 def cmd_stats(args: argparse.Namespace) -> None:
-    """
-    Oblicza średnią arytmetyczną i odchylenie standardowe (populacyjne)
-    wartości wskaźnika dla podanej stacji w zadanym przedziale czasowym.
-
-    Algorytm:
-    1. Wczytaj i odfiltruj pomiary.
-    2. Dla podanej stacji zbierz niepuste wartości numeryczne (pomijamy "0.5"
-       jako wartość zastępczą? Nie – zadanie nie precyzuje, więc włączamy
-       wszystkie niepuste i dające się sparsować liczby).
-    3. Oblicz średnią i odchylenie standardowe.
-    """
-    path = build_measurement_path(args.indicator, args.freq)
-    station_codes, filtered_rows = load_measurements(path, args.start, args.end)
-
-    # Sprawdzamy, czy kod stacji istnieje w pliku pomiarów.
-    target = args.station.strip()
-    if target not in station_codes:
-        print(
-            f"Błąd: stacja '{target}' nie istnieje w pliku pomiarów.",
-            file=sys.stderr,
-        )
-        print(
-            f"Dostępne kody stacji: {', '.join(station_codes)}",
-            file=sys.stderr,
-        )
-        sys.exit(1)
-
-    if not filtered_rows:
-        print(
-            "Brak danych pomiarowych w podanym przedziale czasowym.",
-            file=sys.stderr,
-        )
-        sys.exit(1)
-
-    values = []
-    for row in filtered_rows:
-        raw = row.get(target, "").strip()
-        if not raw:
-            continue
-        try:
-            values.append(float(raw))
-        except ValueError:
-            continue
-
-    if not values:
-        print(
-            f"Stacja '{target}' nie posiada żadnych pomiarów numerycznych "
-            "w podanym przedziale.",
-            file=sys.stderr,
-        )
-        sys.exit(1)
-
-    n = len(values)
-    mean = sum(values) / n
-
-    # Odchylenie standardowe populacyjne:
-    # sqrt( (1/n) * Σ(xi - mean)² )
-    variance = sum((x - mean) ** 2 for x in values) / n
-    std_dev = math.sqrt(variance)
-
+    mean, std_dev, n = calculate_station_stats(
+        find_measurement_file(args.indicator, args.freq),
+        args.station, args.start, args.end
+    )
     print("=" * 55)
-    print(f"Statystyki dla stacji: {target}")
-    print(f"Wskaźnik             : {args.indicator}  [{args.freq}]")
-    print(f"Przedział            : {args.start.date()} – {args.end.date()}")
-    print(f"Liczba pomiarów      : {n}")
-    print(f"Średnia              : {mean:.4f} ng/m³")
-    print(f"Odchylenie std.      : {std_dev:.4f} ng/m³")
+    print(f"Stacja    : {args.station}  [{args.indicator}, {args.freq}]")
+    print(f"Okres     : {args.start.date()} – {args.end.date()}")
+    print(f"Pomiary   : {n}")
+    print(f"Średnia   : {mean:.4f} µg/m³")
+    print(f"Std. odch.: {std_dev:.4f} µg/m³")
     print("=" * 55)
 
 
 # ---------------------------------------------------------------------------
-# Budowanie parsera argparse
+# Parser
 # ---------------------------------------------------------------------------
 
 def build_parser() -> argparse.ArgumentParser:
@@ -383,20 +212,21 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 def main() -> None:
+    setup_logging()
     parser = build_parser()
-    args = parser.parse_args()
-
+    args   = parser.parse_args()
+ 
     if args.start > args.end:
-        parser.error(
-            f"Data początkowa ({args.start.date()}) nie może być "
-            f"późniejsza od daty końcowej ({args.end.date()})."
-        )
-
-    if args.command == "random-station":
-        cmd_random_station(args)
-    elif args.command == "stats":
-        cmd_stats(args)
-
-
+        parser.error(f"Data początkowa ({args.start.date()}) późniejsza od końcowej ({args.end.date()}).")
+ 
+    try:
+        {"random-station": cmd_random_station, "stats": cmd_stats}[args.command](args)
+    except FileNotFoundError as e:
+        logging.error(e)
+        sys.exit(1)
+    except ValueError as e:
+        logging.warning(e)
+ 
+ 
 if __name__ == "__main__":
     main()
