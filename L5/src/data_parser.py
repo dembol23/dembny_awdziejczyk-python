@@ -17,44 +17,81 @@ def parse_station_metadata(path: Path) -> list[dict]:
 
 
 # Zadanie 1 - parsowanie pliku pomiarowego
-def parse_measurements_data(path: Path) -> list[dict]:
+def parse_measurements_data(
+    path: Path,
+    target_station: str | None = None,
+    start_date: datetime | None = None,
+    end_date: datetime | None = None,
+) -> list[dict]:
     if not path.exists():
         raise FileNotFoundError(f"Plik nie istnieje: {path}")
-    
+
     logger.info(f"Otwieranie pliku: {path.name}")
     with open(path, encoding="utf-8-sig", newline="") as f:
-        reader = csv.reader(f)          # <-- reader, nie DictReader
+        reader = csv.reader(f)
         rows = list(reader)
     logger.info(f"Zamknięto plik: {path.name} – wczytano {len(rows)} wierszy")
 
-    station_codes = rows[1][1:]         # wiersz 2: kody stacji
-    indicators    = rows[2][1:]         # wiersz 3: wskaźniki (PM10, ...)
-    frequencies   = rows[3][1:]         # wiersz 4: czas uśredniania
-    units         = rows[4][1:]         # wiersz 5: jednostki
+    station_codes = [s.strip() for s in rows[1][1:]]
+    indicators    = rows[2][1:]
+    frequencies   = rows[3][1:]
+    units         = rows[4][1:]
+
+    # Wczesne wyszukanie indeksu stacji – O(k) tylko raz, nie k razy per wiersz
+    target_idx: int | None = None
+    if target_station is not None:
+        try:
+            target_idx = station_codes.index(target_station.strip())
+        except ValueError:
+            logger.warning(f"Stacja '{target_station}' nie istnieje w pliku {path.name}")
+            return []
 
     records = []
-    for row in rows[6:]:                # dane od wiersza 7 (index 6)
+    for row in rows[6:]:
         if not row or not row[0]:
             continue
-        logger.debug(f"Wczytano wiersz: {sum(len(c) for c in row)} bajtów")
+
         timestamp = datetime.strptime(row[0], "%m/%d/%y %H:%M")
 
-        for i, raw_val in enumerate(row[1:]):
-            if not raw_val:
-                continue
-            try:
-                value = float(raw_val.replace(',', '.'))
-            except ValueError:
-                continue
+        # Wczesne odrzucenie całego wiersza po dacie
+        if start_date is not None and timestamp < start_date:
+            continue
+        if end_date is not None and timestamp > end_date:
+            continue
 
-            records.append({
-                "timestamp": timestamp,
-                "station":   station_codes[i],
-                "indicator": indicators[i],
-                "frequency": frequencies[i],
-                "unit":      units[i],
-                "value":     value,
-            })
+        logger.debug(f"Wczytano wiersz: {sum(len(c.encode('utf-8')) for c in row)} bajtów")
+
+        if target_idx is not None:
+            # Ścieżka szybka – tylko jedna kolumna
+            raw_val = row[target_idx + 1] if target_idx + 1 < len(row) else ""
+            if raw_val:
+                try:
+                    records.append({
+                        "timestamp": timestamp,
+                        "station":   station_codes[target_idx],
+                        "indicator": indicators[target_idx],
+                        "frequency": frequencies[target_idx],
+                        "unit":      units[target_idx],
+                        "value":     float(raw_val.replace(',', '.')),
+                    })
+                except ValueError:
+                    pass
+        else:
+            # Ścieżka pełna – wszystkie kolumny
+            for i, raw_val in enumerate(row[1:]):
+                if not raw_val or i >= len(station_codes):
+                    continue
+                try:
+                    records.append({
+                        "timestamp": timestamp,
+                        "station":   station_codes[i],
+                        "indicator": indicators[i],
+                        "frequency": frequencies[i],
+                        "unit":      units[i],
+                        "value":     float(raw_val.replace(',', '.')),
+                    })
+                except ValueError:
+                    continue
 
     return records
 
@@ -79,7 +116,7 @@ def get_addresses(path: Path, city: str) -> list[tuple]:
     addr_pattern = re.compile(r'^(.*?)\s+(\d+\w*)$')
     result = []
     for station in res:
-        if station.get("Województwo", "").lower() == city.lower():
+        if station.get("Miejscowość", "").strip().lower() == city.lower():
             addr  = station.get("Adres", "").strip()
             match = addr_pattern.match(addr)
             if match:

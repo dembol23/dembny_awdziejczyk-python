@@ -4,7 +4,9 @@ import sys
 from datetime import datetime
 from pathlib import Path
 from air_quality_stats import get_random_active_station, calculate_station_stats
+from statistics import StatisticsError
 from data_parser import group_measurement_files_by_key
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Stałe
@@ -74,11 +76,17 @@ def validate_freq(value: str) -> str:
  
 def find_measurement_file(indicator: str, freq: str) -> Path:
     files = group_measurement_files_by_key(MEASUREMENTS_DIR)
-    key   = next((k for k in files if k[1] == indicator and k[2] == freq), None)
-    if key is None:
-        logging.warning(f"Brak pliku pomiarowego dla wskaźnika={indicator}, freq={freq}")
-        raise FileNotFoundError(f"Nie znaleziono pliku: {indicator}_{freq}.csv")
-    return files[key]
+    matches = sorted(
+        [k for k in files if k[1] == indicator and k[2] == freq],
+        key=lambda k: k[0],
+        reverse=True,
+    )
+    if not matches:
+        logger.warning(f"Brak pliku pomiarowego dla wskaźnika={indicator}, freq={freq}")
+        raise FileNotFoundError(
+            f"Brak pliku pomiarowego dla wskaźnika={indicator}, częstotliwości={freq}."
+        )
+    return files[matches[0]]
 
 # ---------------------------------------------------------------------------
 # Podkomendy
@@ -142,7 +150,7 @@ def build_parser() -> argparse.ArgumentParser:
         type=validate_indicator,
         metavar="WSKAŹNIK",
         help=(
-            f"Mierzona wielkość, np. PM10, PM2.5, NO2. "
+            f"Mierzona wielkość, np. PM10, PM25, NO2. "
             f"Dozwolone: {', '.join(sorted(VALID_INDICATORS))}"
         ),
     )
@@ -226,6 +234,10 @@ def main() -> None:
         sys.exit(1)
     except ValueError as e:
         logging.warning(e)
+        sys.exit(2)
+    except StatisticsError as e:
+        logging.error(e)
+        sys.exit(1)
  
  
 if __name__ == "__main__":
