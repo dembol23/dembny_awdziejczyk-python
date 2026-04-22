@@ -1,4 +1,5 @@
 import re
+import unicodedata
 
 def findall_in_file(file_name: str, pattern: str):
     pattern = re.compile(pattern)
@@ -25,16 +26,8 @@ def get_hyphenated_stations(csv_file_name: str) -> list[str]:
 # i. spacje na symbol podłogi (“ “ → “_”)
 # ii. polskie znaki diakrytyczne na ich odpowiedniki będące literami alfabetu łacińskiego (‘ą” → ‘a’, ‘ć’ → ‘c’, itd.)
 def normalize_station_names(csv_file_name: str) -> list[str]:
-    diacritics = {
-        'ą': 'a', 'ć': 'c', 'ę': 'e', 'ł': 'l', 'ń': 'n',
-        'ó': 'o', 'ś': 's', 'ź': 'z', 'ż': 'z',
-        'Ą': 'A', 'Ć': 'C', 'Ę': 'E', 'Ł': 'L', 'Ń': 'N',
-        'Ó': 'O', 'Ś': 'S', 'Ź': 'Z', 'Ż': 'Z',
-    }
-
     column_pattern = re.compile(r'(?:[^,]*,){3}([^,]+)')
-    replace_pattern = re.compile(f"[{''.join(diacritics.keys())} ]")
-
+    l_fix = str.maketrans({'ł': 'l', 'Ł': 'L'})
     result = []
     with open(csv_file_name, 'r', encoding='utf-8-sig') as f:
         next(f)
@@ -44,7 +37,10 @@ def normalize_station_names(csv_file_name: str) -> list[str]:
             if not match:
                 continue
             name = match.group(1)
-            name = re.sub(replace_pattern, lambda m: diacritics.get(m.group(), '_'), name)
+            name = name.translate(l_fix)
+            name = unicodedata.normalize('NFD', name)
+            name = ''.join(c for c in name if unicodedata.category(c) != 'Mn')
+            name = name.replace(' ', '_')
             result.append(name)
     return result
 

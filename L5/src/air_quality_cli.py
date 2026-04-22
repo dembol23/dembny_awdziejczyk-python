@@ -28,13 +28,14 @@ VALID_INDICATORS = {
 VALID_FREQS = {"1g", "24g"}
 
 def setup_logging() -> None:
-    fmt = logging.Formatter("%(asctime)s [%(levelname)s] %(message)s", "%H:%M:%S")
- 
+    fmt = logging.Formatter("%(asctime)s [%(levelname)s] %(name)s:%(lineno)d – %(message)s","%H:%M:%S")
+#  DEBUG INFO WARNING
     stdout_handler = logging.StreamHandler(sys.stdout)
     stdout_handler.setLevel(logging.DEBUG)
     stdout_handler.addFilter(lambda r: r.levelno < logging.ERROR)
     stdout_handler.setFormatter(fmt)
  
+#  ERROR CRITICAL
     stderr_handler = logging.StreamHandler(sys.stderr)
     stderr_handler.setLevel(logging.ERROR)
     stderr_handler.setFormatter(fmt)
@@ -82,7 +83,7 @@ def find_measurement_file(indicator: str, freq: str) -> Path:
         reverse=True,
     )
     if not matches:
-        logger.warning(f"Brak pliku pomiarowego dla wskaźnika={indicator}, freq={freq}")
+        logger.error(f"Brak pliku pomiarowego dla wskaźnika={indicator}, freq={freq}")
         raise FileNotFoundError(
             f"Brak pliku pomiarowego dla wskaźnika={indicator}, częstotliwości={freq}."
         )
@@ -195,20 +196,15 @@ def build_parser() -> argparse.ArgumentParser:
     # Podkomenda: random-station
     subparsers.add_parser(
         "random-station",
-        help=(
-            "Wypisz nazwę i adres losowej stacji mierzącej podany wskaźnik "
-            "w zadanym przedziale czasowym."
-        ),
+        help=("Wypisz nazwę i adres losowej stacji mierzącej podany wskaźnik w zadanym przedziale czasowym."),
     )
 
     # Podkomenda: stats
     stats_parser = subparsers.add_parser(
         "stats",
-        help=(
-            "Oblicz średnią i odchylenie standardowe wskaźnika "
-            "dla wybranej stacji w zadanym przedziale czasowym."
-        ),
+        help=("Oblicz średnią i odchylenie standardowe wskaźnika dla wybranej stacji w zadanym przedziale czasowym."),
     )
+
     # Argument wymagany tylko przez podkomendę stats.
     stats_parser.add_argument(
         "--station",
@@ -229,13 +225,7 @@ def main() -> None:
  
     try:
         {"random-station": cmd_random_station, "stats": cmd_stats}[args.command](args)
-    except FileNotFoundError as e:
-        logging.error(e)
-        sys.exit(1)
-    except ValueError as e:
-        logging.warning(e)
-        sys.exit(2)
-    except StatisticsError as e:
+    except {FileNotFoundError, ValueError, StatisticsError} as e:
         logging.error(e)
         sys.exit(1)
  

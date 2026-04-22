@@ -11,14 +11,14 @@ def get_random_active_station(measurement_path: Path, stations_path: Path, start
     active_codes = {rec["station"] for rec in records}
     
     if not active_codes:
-        logger.warning("Brak danych pomiarowych w podanym przedziale czasowym.")
+        logger.error("Brak danych pomiarowych w podanym przedziale czasowym.")
         raise ValueError("Brak danych pomiarowych w podanym przedziale czasowym.")
 
     stations = parse_station_metadata(stations_path)
     matching_stations = [s for s in stations if s.get("Kod stacji", "").strip() in active_codes]
 
     if not matching_stations:
-        logger.warning("Znaleziono pomiary, ale brak pasujących metadanych stacji.")
+        logger.error("Znaleziono pomiary, ale brak pasujących metadanych stacji.")
         raise ValueError("Nie znaleziono metadanych dla żadnej aktywnej stacji.")
 
     return random.choice(matching_stations)
@@ -33,11 +33,11 @@ def calculate_station_stats(measurement_path: Path, target_station: str, start: 
     values = [rec["value"] for rec in records]
 
     if not values:
-        logger.warning("Brak danych pomiarowych w podanym przedziale czasowym.")
+        logger.error("Brak danych pomiarowych w podanym przedziale czasowym.")
         raise ValueError(f"Stacja '{target_station}' nie posiada żadnych pomiarów w podanym przedziale.")
 
     if len(values) < 2:
-        logger.warning(f"Za mało pomiarów dla stacji '{target_station}' – odchylenie standardowe niemożliwe do obliczenia (n={len(values)}).")
+        logger.error(f"Za mało pomiarów dla stacji '{target_station}' – odchylenie standardowe niemożliwe do obliczenia (n={len(values)}).")
         raise ValueError(f"Za mało pomiarów (n={len(values)}) – do obliczenia odchylenia standardowego potrzeba co najmniej 2.")
 
     mean = statistics.mean(values)

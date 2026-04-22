@@ -32,6 +32,10 @@ def parse_measurements_data(
         rows = list(reader)
     logger.info(f"Zamknięto plik: {path.name} – wczytano {len(rows)} wierszy")
 
+    if len(rows) < 7:
+        logger.error(f"Plik {path.name} jest uszkodzony lub zbyt krótki (brak nagłówków).")
+        return []
+
     station_codes = [s.strip() for s in rows[1][1:]]
     indicators    = rows[2][1:]
     frequencies   = rows[3][1:]
@@ -105,6 +109,7 @@ def group_measurement_files_by_key(path: Path) -> dict[tuple, Path]:
 
     pattern = re.compile(r'^(\d{4})_([^_]+)_([^_]+)\.csv$')
     result = {}
+    # path.glob("*.csv") zwraca od razu obiekty Path i nie zagląda do podkatalogów
     for file in path.glob("*.csv"):
         match = pattern.match(file.name)
         if match:
