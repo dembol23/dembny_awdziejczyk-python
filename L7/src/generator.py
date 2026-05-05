@@ -1,5 +1,5 @@
 from typing import Callable, Generator, Any
-from functools import cache, cached_property
+from functools import cache
 
 
 def make_generator(f: Callable[[int], Any]) -> Generator[Any, None, None]:

@@ -5,14 +5,14 @@ class PasswordGenerator:
     def __init__(self, length: int = 10, charset: str = string.ascii_letters + string.digits, count: int = 10):
         self.length = length
         self.charset = charset
-        self.max = count
-        self.count = 0
+        self.limit = count
+        self.generated = 0
 
     def __iter__(self):
         return self
     
     def __next__(self):
-        if self.count >= self.max:
+        if self.generated >= self.limit:
             raise StopIteration
-        self.count += 1
+        self.generated += 1
         return "".join(random.choices(self.charset, k = self.length))
