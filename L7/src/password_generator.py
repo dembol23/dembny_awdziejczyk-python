@@ -2,10 +2,10 @@ import random
 import string
 
 class PasswordGenerator:
-    def __init__(self, length: int = 10, charset: str = string.ascii_letters + string.digits, count: int = 10):
+    def __init__(self, length: int = 10, charset: str = string.ascii_letters + string.digits, limit: int = 10):
         self.length = length
         self.charset = charset
-        self.limit = count
+        self.limit = limit
         self.generated = 0
 
     def __iter__(self):
