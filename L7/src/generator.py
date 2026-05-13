@@ -19,8 +19,9 @@ def mem_make_generator(f: Callable[[int], Any]) -> Generator[Any, None, None]:
     return make_generator(f._cache)
 
 def mem_make_generator_rec(f):
-    cached_f = cache(f)
-    module = sys.modules[f.__module__]
-    if hasattr(module, f.__name__):
-        setattr(module, f.__name__, cached_f)
-    return make_generator(cached_f)
+    if not hasattr(f, '_cache'):
+        f._cache = cache(f)
+        module = sys.modules[f.__module__]
+        if hasattr(module, f.__name__):
+            setattr(module, f.__name__, f._cache)
+    return make_generator(f._cache)

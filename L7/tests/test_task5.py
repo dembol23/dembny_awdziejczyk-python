@@ -39,6 +39,13 @@ def test_call_count_comparison():
 
     print(f"Wywołania po drugim mem_make_generator: {call_count_mem}")
 
+    gen_rec_2 = mem_make_generator_rec(fib_rec)
+    for _ in range(8):
+        next(gen_rec_2)
+
+    print(f"Wywołania po drugim mem_make_generator (rec): {call_count_rec}")
+
+
 
 
 if __name__ == "__main__":
